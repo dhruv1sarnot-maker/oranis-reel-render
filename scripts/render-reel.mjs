@@ -30,7 +30,7 @@ cmd += ` ${tmp}/out.mp4`
 execSync(cmd, { stdio: 'ignore' })
 const key = `reels/${E.APP_SLUG}/${E.QUEUE_ITEM_ID}.mp4`
 const up = await fetch(`${E.SUPABASE_URL}/storage/v1/object/generated-apps/${key}`, {
-  method: 'POST', headers: { Authorization: `Bearer ${E.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'video/mp4', 'x-upsert': 'true' },
+  method: 'POST', headers: { apikey: E.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${E.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'video/mp4', 'x-upsert': 'true' },
   body: fs.readFileSync(`${tmp}/out.mp4`),
 })
 if (!up.ok) { console.error('upload failed', up.status, await up.text().catch(() => '')); process.exit(1) }
