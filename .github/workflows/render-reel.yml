@@ -1,0 +1,32 @@
+name: render-reel
+on:
+  workflow_dispatch:
+    inputs:
+      queue_item_id: { description: queue id, required: true }
+      app_slug: { description: app slug, required: true }
+      hook: { description: hook text, required: false }
+      caption: { description: caption, required: false }
+      image_urls: { description: JSON array of image urls, required: true }
+      music_url: { description: optional music url, required: false }
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Render reel
+        run: node scripts/render-reel.mjs
+        env:
+          QUEUE_ITEM_ID: ${{ inputs.queue_item_id }}
+          APP_SLUG: ${{ inputs.app_slug }}
+          HOOK: ${{ inputs.hook }}
+          CAPTION: ${{ inputs.caption }}
+          IMAGE_URLS: ${{ inputs.image_urls }}
+          MUSIC_URL: ${{ inputs.music_url }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ORANIS_BASE_URL: ${{ secrets.ORANIS_BASE_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
