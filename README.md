@@ -1,2 +1,3 @@
 # oranis-reel-render
-ORANIS $0 reel renderer (FFmpeg). Dispatch-triggered marketing-video render pipeline.
+
+Dispatch-triggered FFmpeg render pipeline for ORANIS marketing reels. Triggered via workflow_dispatch with a render spec; renders a 9:16 mp4, uploads to Supabase Storage, writes the URL back to ORANIS.
