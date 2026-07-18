@@ -10,6 +10,8 @@ on:
       music_url: { description: optional music url, required: false }
       clip_urls: { description: JSON array of real-life scenario clip urls (scenario mode), required: false }
       cta: { description: CTA end-card text, required: false }
+      dialogue: { description: spoken words for karaoke captions, required: false }
+      demo_captions: { description: JSON array of 1-3 word captions per app screen, required: false }
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -30,6 +32,8 @@ jobs:
           MUSIC_URL: ${{ inputs.music_url }}
           CLIP_URLS: ${{ inputs.clip_urls }}
           CTA: ${{ inputs.cta }}
+          DIALOGUE: ${{ inputs.dialogue }}
+          DEMO_CAPTIONS: ${{ inputs.demo_captions }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ORANIS_BASE_URL: ${{ secrets.ORANIS_BASE_URL }}
