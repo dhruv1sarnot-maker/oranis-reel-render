@@ -1,0 +1,35 @@
+name: render-commercial
+on:
+  workflow_dispatch:
+    inputs:
+      queue_item_id: { required: true }
+      app_slug: { required: true }
+      clip_urls: { required: true }
+      money_shot_url: { required: false }
+      voiceover_url: { required: true }
+      music_url: { required: false }
+      words: { required: false }
+      cta: { required: false }
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: node scripts/render-commercial.mjs
+        env:
+          QUEUE_ITEM_ID: ${{ inputs.queue_item_id }}
+          APP_SLUG: ${{ inputs.app_slug }}
+          CLIP_URLS: ${{ inputs.clip_urls }}
+          MONEY_SHOT_URL: ${{ inputs.money_shot_url }}
+          VOICEOVER_URL: ${{ inputs.voiceover_url }}
+          MUSIC_URL: ${{ inputs.music_url }}
+          WORDS: ${{ inputs.words }}
+          CTA: ${{ inputs.cta }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ORANIS_BASE_URL: ${{ secrets.ORANIS_BASE_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
