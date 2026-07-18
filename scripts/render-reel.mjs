@@ -83,7 +83,7 @@ if (clips.length) {
     if (cap) fs.writeFileSync(`${tmp}/dcap${i}.txt`, cap)
     const capF = cap ? `,drawtext=textfile=${tmp}/dcap${i}.txt:fontcolor=white:fontsize=74:borderw=8:bordercolor=black:x=(w-tw)/2:y=h*0.80` : ''
     try {
-      sh(`ffmpeg -y -loop 1 -i ${ip} -f lavfi -i ${AUD} -map 0:v -map 1:a -t 2.2 -vf "scale=1000:-1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x0d0f12${capF},format=yuv420p" ${ENC} -shortest ${seg}`)
+      sh(`ffmpeg -y -loop 1 -i ${ip} -f lavfi -i ${AUD} -map 0:v -map 1:a -t 2.2 -vf "scale=1000:1580:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x0d0f12${capF},fps=25,format=yuv420p" ${ENC} -shortest ${seg}`)
       segs.push(seg)
     } catch (e) { console.error('demo beat failed', i, String(e).slice(0,120)) }
   }
