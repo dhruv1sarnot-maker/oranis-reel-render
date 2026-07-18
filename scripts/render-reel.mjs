@@ -54,53 +54,54 @@ if (hook) fs.writeFileSync(`${tmp}/hook.txt`, hook)
 // is the closest native read.)
 const hookText = hook ? `,drawtext=textfile=${tmp}/hook.txt:fontcolor=black:fontsize=56:line_spacing=12:box=1:boxcolor=white@0.94:boxborderw=26:x=(w-tw)/2:y=(h-th)/2.6` : ''
 const segs = []
+const AUD = 'anullsrc=r=48000:cl=stereo'                      // silent stereo bed so every beat has audio
+const ENC = '-c:v libx264 -preset veryfast -pix_fmt yuv420p -r 25 -c:a aac -ar 48000 -ac 2'
+function probeDur(f) { try { return parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${f}`).toString().trim()) || 8 } catch { return 8 } }
 
 if (clips.length) {
-  // SCENARIO MODE — real-life beats first (2.6s each, muted), hook on beat 1
-  const beatSec = clips.length <= 2 ? 4.2 : 2.6  // POV format: fewer clips -> the person carries it longer
-  const captionSrc = String(E.DIALOGUE || E.HOOK || '')  // karaoke the SPOKEN words when we have them
+  const captionSrc = String(E.DIALOGUE || E.HOOK || '')       // karaoke the SPOKEN words
   for (let i = 0; i < clips.length; i++) {
     const cp = `${tmp}/clip${i}.mp4`; try { await dl(clips[i], cp) } catch { continue }
     const seg = `${tmp}/cseg${i}.mp4`
-    const kw = i === 0 ? karaokeCaptions(captionSrc, 0, beatSec, tmp, `c${i}`) : ''
+    const dur = Math.min(probeDur(cp), 9)                     // KEEP the talking clip's FULL length (was cut to 4.2s)
+    const kw = i === 0 ? karaokeCaptions(captionSrc, 0, dur, tmp, `c${i}`) : ''
     const vf = `${V},fps=25${kw ? ',' + kw : ''},format=yuv420p`
+    // KEEP the clip's real audio (her voice). If it has none, mix in silence so the stream always exists.
     try {
-      sh(`ffmpeg -y -i ${cp} -t ${beatSec} -an -vf "${vf}" -c:v libx264 -preset veryfast ${seg}`)
-      segs.push(seg)
-    } catch {}
+      sh(`ffmpeg -y -i ${cp} -f lavfi -i ${AUD} -map 0:v:0 -map 0:a:0? -map 1:a:0 -filter_complex "[1:a]apad[sil];[0:a:0?][sil]amix=inputs=2:duration=first[a]" -map "[a]" -t ${dur} -vf "${vf}" ${ENC} -shortest ${seg}`)
+    } catch {
+      sh(`ffmpeg -y -i ${cp} -f lavfi -i ${AUD} -map 0:v:0 -map 1:a:0 -t ${dur} -vf "${vf}" ${ENC} -shortest ${seg}`)
+    }
+    segs.push(seg)
   }
-  // APP-IN-USE DEMO (founder 2026-07-17: "show the user getting results based on the app's capabilities") —
-  // the REAL app screens sequenced as a screen-recording (phone-screen framing on a dark ground), each with a
-  // 1-3 word caption. This is the "using the app -> result" beat the winning ads all have.
-  const demoCaps = (() => { try { return JSON.parse(E.DEMO_CAPTIONS || '[]') } catch { return [] } })()
+  // APP-IN-USE DEMO — REAL app screens as a screen-recording (phone framing), each with a 1-3 word caption.
+  const demoCaps = J(E.DEMO_CAPTIONS)
   for (let i = 0; i < images.length; i++) {
     const ip = `${tmp}/demo${i}.png`; try { await dl(images[i], ip) } catch { continue }
     const seg = `${tmp}/demo${i}.mp4`
     const cap = demoCaps[i] ? String(demoCaps[i]).toUpperCase().replace(/['":\\%,]/g, ' ') : ''
     if (cap) fs.writeFileSync(`${tmp}/dcap${i}.txt`, cap)
-    const capF = cap ? `,drawtext=textfile=${tmp}/dcap${i}.txt:fontcolor=white:fontsize=74:borderw=8:bordercolor=black:x=(w-tw)/2:y=h*0.80:enable='gte(t,0.25)'` : ''
-    // phone-screen framing: scale the UI to ~92% width, pad onto a near-black ground = looks like a screen record
+    const capF = cap ? `,drawtext=textfile=${tmp}/dcap${i}.txt:fontcolor=white:fontsize=74:borderw=8:bordercolor=black:x=(w-tw)/2:y=h*0.80` : ''
     try {
-      sh(`ffmpeg -y -loop 1 -i ${ip} -t 2.2 -vf "scale=1000:-1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x0d0f12,zoompan=z='min(zoom+0.0016,1.10)':d=55:s=1080x1920,fps=25${capF},format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+      sh(`ffmpeg -y -loop 1 -i ${ip} -f lavfi -i ${AUD} -map 0:v -map 1:a -t 2.2 -vf "scale=1000:-1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x0d0f12${capF},format=yuv420p" ${ENC} -shortest ${seg}`)
       segs.push(seg)
-    } catch {}
+    } catch (e) { console.error('demo beat failed', i, String(e).slice(0,120)) }
   }
-  // CTA END-CARD — 1.6s, bold centered CTA
+  // CTA END-CARD
   try {
     const seg = `${tmp}/cta.mp4`
     fs.writeFileSync(`${tmp}/cta.txt`, wrap(cta, 18, 2))
-    sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=1.6 -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=72:line_spacing=16:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+    sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=1.8 -f lavfi -i ${AUD} -map 0:v -map 1:a -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=72:line_spacing=16:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" ${ENC} -shortest ${seg}`)
     segs.push(seg)
-  } catch {}
+  } catch (e) { console.error('cta failed', String(e).slice(0,120)) }
 }
 
 if (!segs.length) {
-  // V1 FALLBACK — screenshot slideshow with hook overlay (previous behavior)
   for (let i = 0; i < images.length; i++) {
     const ip = `${tmp}/img${i}.png`; try { await dl(images[i], ip) } catch { continue }
     const seg = `${tmp}/seg${i}.mp4`
     try {
-      sh(`ffmpeg -y -loop 1 -i ${ip} -t 3 -vf "${V},zoompan=z='min(zoom+0.0012,1.12)':d=75:s=1080x1920${i === 0 ? hookText : ''},fps=25,format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+      sh(`ffmpeg -y -loop 1 -i ${ip} -f lavfi -i ${AUD} -map 0:v -map 1:a -t 3 -vf "${V},zoompan=z='min(zoom+0.0012,1.12)':d=75:s=1080x1920${i === 0 ? hookText : ''},fps=25,format=yuv420p" ${ENC} -shortest ${seg}`)
       segs.push(seg)
     } catch {}
   }
@@ -108,14 +109,12 @@ if (!segs.length) {
 if (!segs.length) { console.error('no segments'); process.exit(0) }
 
 fs.writeFileSync(`${tmp}/list.txt`, segs.map((s) => `file '${s}'`).join('\n'))
-sh(`ffmpeg -y -f concat -safe 0 -i ${tmp}/list.txt -c copy ${tmp}/base.mp4`)
+sh(`ffmpeg -y -f concat -safe 0 -i ${tmp}/list.txt -c copy ${tmp}/base.mp4`)   // all segs share codec/params -> copy-safe
+// music: duck UNDER the existing voice track (don't replace it) if provided
 let haveMusic = false
 if (E.MUSIC_URL) { try { await dl(E.MUSIC_URL, `${tmp}/m.mp3`); haveMusic = fs.existsSync(`${tmp}/m.mp3`) } catch {} }
-let cmd = `ffmpeg -y -i ${tmp}/base.mp4`
-if (haveMusic) cmd += ` -stream_loop -1 -i ${tmp}/m.mp3 -map 0:v -map 1:a -c:v copy -c:a aac -shortest`
-else cmd += ` -c copy`
-cmd += ` ${tmp}/out.mp4`
-sh(cmd)
+if (haveMusic) sh(`ffmpeg -y -i ${tmp}/base.mp4 -stream_loop -1 -i ${tmp}/m.mp3 -filter_complex "[1:a]volume=0.18[bg];[0:a][bg]amix=inputs=2:duration=first[a]" -map 0:v -map "[a]" -c:v copy -c:a aac -shortest ${tmp}/out.mp4`)
+else sh(`ffmpeg -y -i ${tmp}/base.mp4 -c copy ${tmp}/out.mp4`)
 
 const key = `reels/${E.APP_SLUG}/${E.QUEUE_ITEM_ID}.mp4`
 const up = await fetch(`${E.SUPABASE_URL}/storage/v1/object/generated-apps/${key}`, {
