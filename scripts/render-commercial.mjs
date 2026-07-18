@@ -36,8 +36,9 @@ if (E.MONEY_SHOT_URL) {
 }
 // CTA card to fill the remainder (>=2s)
 const ctaLen = Math.max(2.5, total - t)
-fs.writeFileSync(`${tmp}/cta.txt`, String(E.CTA || 'Download').toUpperCase())
-sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=${ctaLen} -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=72:borderw=6:bordercolor=black:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" ${ENC} ${tmp}/cta.mp4`)
+// wrap the CTA so it never overflows the end card (<=16 chars/line)
+{ const cw = String(E.CTA || 'Download').toUpperCase().split(/\s+/); const lines=['']; for(const w of cw){ if((lines[lines.length-1]+' '+w).trim().length<=16) lines[lines.length-1]=(lines[lines.length-1]+' '+w).trim(); else lines.push(w) } fs.writeFileSync(`${tmp}/cta.txt`, lines.filter(Boolean).join('\n')) }
+sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=${ctaLen} -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=64:line_spacing=16:borderw=6:bordercolor=black:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" ${ENC} ${tmp}/cta.mp4`)
 segs.push({ seg: `${tmp}/cta.mp4`, len: ctaLen })
 
 // 3) concat the visual track
