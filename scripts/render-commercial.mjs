@@ -48,12 +48,21 @@ sh(`ffmpeg -y -f concat -safe 0 -i ${tmp}/list.txt -c copy ${tmp}/vid.mp4`)
 let capF = ''
 if (words.length) {
   const groups = []
+  // CLEAN captions (founder: "the texts is the problem"): strip ALL punctuation, drop the brand name, group
+  // into short phrases that always FIT the frame (no edge cutoff), never show a period or "CurioSnap".
+  const brand = String(E.APP_SLUG || '').toLowerCase()
+  const clean = (w) => (w || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim()
   for (let i = 0; i < words.length;) {
-    const take = (words[i].word || '').length > 8 ? 1 : 2
-    const g = words.slice(i, i + take)
-    groups.push({ text: g.map((w) => (w.word || '').trim()).join(' ').toUpperCase().replace(/['":\\%,]/g, ''), a: g[0].start, b: g[g.length - 1].end }); i += take
+    let text = clean(words[i].word), j = i + 1
+    // grow the group up to ~14 chars so pairs like "SNAP ANYTHING" stay together, longer words go solo
+    while (j < words.length && (text + ' ' + clean(words[j].word)).length <= 14) { text = (text + ' ' + clean(words[j].word)).trim(); j++ }
+    const a = words[i].start, b = words[j - 1].end
+    // drop empty groups + the brand word (never show the app name as a caption)
+    if (text && text.toLowerCase() !== brand) groups.push({ text, a, b })
+    i = j
   }
-  capF = ',' + groups.map((g, i) => { const f = `${tmp}/w${i}.txt`; fs.writeFileSync(f, g.text); return `drawtext=textfile=${f}:fontcolor=white:fontsize=80:borderw=9:bordercolor=black:x=(w-tw)/2:y=h*0.74:enable='between(t,${g.a.toFixed(2)},${g.b.toFixed(2)})'` }).join(',')
+  // fontsize 58 keeps <=14-char lines well inside 1080px; lower third, bold white + thick outline.
+  capF = ',' + groups.map((g, i) => { const f = `${tmp}/w${i}.txt`; fs.writeFileSync(f, g.text); return `drawtext=textfile=${f}:fontcolor=white:fontsize=58:borderw=7:bordercolor=black:x=(w-tw)/2:y=h*0.76:enable='between(t,${g.a.toFixed(2)},${g.b.toFixed(2)})'` }).join(',')
 }
 
 // 5) audio: VO master + music bed ducked under (loop the short clip), captions burned, output.
