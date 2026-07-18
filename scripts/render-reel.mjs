@@ -30,6 +30,25 @@ const wrap = (t, w = 22, max = 4) => {
 const hook = wrap(esc(E.HOOK, 80))
 const cta = esc(E.CTA, 60) || ('Download ' + esc(E.APP_SLUG, 30))
 const V = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920'
+// WORD-BY-WORD captions (founder 2026-07-17: "1 to 3 words at a time, better for conversion") — the TikTok
+// karaoke style. Splits text into 1-3 word chunks and shows each for its time-slice via drawtext enable=,
+// bold white with a thick black outline, centered lower-third. `dur` = seconds available for the whole line.
+function karaokeCaptions(text, startT, dur, tmpDir, tag) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return ''
+  const chunks = []
+  for (let i = 0; i < words.length;) {
+    const take = words[i].length + (words[i + 1] || '').length <= 13 ? 2 : 1  // 1-3 words, tighter when long
+    chunks.push(words.slice(i, i + take).join(' ')); i += take
+  }
+  const per = dur / chunks.length
+  const fs = require('fs')
+  return chunks.map((c, i) => {
+    const f = `${tmpDir}/kw-${tag}-${i}.txt`; fs.writeFileSync(f, c.toUpperCase())
+    const a = (startT + i * per).toFixed(2), b = (startT + (i + 1) * per).toFixed(2)
+    return `drawtext=textfile=${f}:fontcolor=white:fontsize=76:borderw=8:bordercolor=black:x=(w-tw)/2:y=h*0.72:enable='between(t,${a},${b})'`
+  }).join(',')
+}
 if (hook) fs.writeFileSync(`${tmp}/hook.txt`, hook)
 // NATIVE caption furniture (studied from Cal AI / Umax top reels 2026-07-17): WHITE rounded box, BLACK text,
 // center-screen — reads as platform-native, not an ad overlay. (ffmpeg box isn't rounded; white box + padding
@@ -40,22 +59,30 @@ const segs = []
 if (clips.length) {
   // SCENARIO MODE — real-life beats first (2.6s each, muted), hook on beat 1
   const beatSec = clips.length <= 2 ? 4.2 : 2.6  // POV format: fewer clips -> the person carries it longer
+  const captionSrc = String(E.DIALOGUE || E.HOOK || '')  // karaoke the SPOKEN words when we have them
   for (let i = 0; i < clips.length; i++) {
     const cp = `${tmp}/clip${i}.mp4`; try { await dl(clips[i], cp) } catch { continue }
     const seg = `${tmp}/cseg${i}.mp4`
-    const overlay = i === 0 ? hookText : ''
+    const kw = i === 0 ? karaokeCaptions(captionSrc, 0, beatSec, tmp, `c${i}`) : ''
+    const vf = `${V},fps=25${kw ? ',' + kw : ''},format=yuv420p`
     try {
-      sh(`ffmpeg -y -i ${cp} -t ${beatSec} -an -vf "${V},fps=25${overlay},format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+      sh(`ffmpeg -y -i ${cp} -t ${beatSec} -an -vf "${vf}" -c:v libx264 -preset veryfast ${seg}`)
       segs.push(seg)
     } catch {}
   }
-  // APP PAYOFF — one screenshot, slow push-in (the product moment, not the whole video)
-  if (images.length) {
-    const ip = `${tmp}/payoff.png`
+  // APP-IN-USE DEMO (founder 2026-07-17: "show the user getting results based on the app's capabilities") —
+  // the REAL app screens sequenced as a screen-recording (phone-screen framing on a dark ground), each with a
+  // 1-3 word caption. This is the "using the app -> result" beat the winning ads all have.
+  const demoCaps = (() => { try { return JSON.parse(E.DEMO_CAPTIONS || '[]') } catch { return [] } })()
+  for (let i = 0; i < images.length; i++) {
+    const ip = `${tmp}/demo${i}.png`; try { await dl(images[i], ip) } catch { continue }
+    const seg = `${tmp}/demo${i}.mp4`
+    const cap = demoCaps[i] ? String(demoCaps[i]).toUpperCase().replace(/['":\\%,]/g, ' ') : ''
+    if (cap) fs.writeFileSync(`${tmp}/dcap${i}.txt`, cap)
+    const capF = cap ? `,drawtext=textfile=${tmp}/dcap${i}.txt:fontcolor=white:fontsize=74:borderw=8:bordercolor=black:x=(w-tw)/2:y=h*0.80:enable='gte(t,0.25)'` : ''
+    // phone-screen framing: scale the UI to ~92% width, pad onto a near-black ground = looks like a screen record
     try {
-      await dl(images[0], ip)
-      const seg = `${tmp}/payoff.mp4`
-      sh(`ffmpeg -y -loop 1 -i ${ip} -t 2.6 -vf "${V},zoompan=z='min(zoom+0.0018,1.16)':d=65:s=1080x1920,fps=25,format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+      sh(`ffmpeg -y -loop 1 -i ${ip} -t 2.2 -vf "scale=1000:-1,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x0d0f12,zoompan=z='min(zoom+0.0016,1.10)':d=55:s=1080x1920,fps=25${capF},format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
       segs.push(seg)
     } catch {}
   }
