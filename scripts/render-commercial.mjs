@@ -52,7 +52,7 @@ if (words.length) {
   // CLEAN captions (founder: "the texts is the problem"): strip ALL punctuation, drop the brand name, group
   // into short phrases that always FIT the frame (no edge cutoff), never show a period or "CurioSnap".
   const brand = String(E.APP_SLUG || '').toLowerCase()
-  const clean = (w) => (w || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim()
+  const clean = (w) => (w || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g,' ').trim()
   for (let i = 0; i < words.length;) {
     let text = clean(words[i].word), j = i + 1
     // grow the group up to ~14 chars so pairs like "SNAP ANYTHING" stay together, longer words go solo
