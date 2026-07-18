@@ -34,12 +34,20 @@ if (E.MONEY_SHOT_URL) {
     segs.push({ seg, len: 3.0 }); t += 3.0
   } catch {}
 }
-// CTA card to fill the remainder (>=2s)
+// CTA card to fill the remainder (>=2.5s) — a BRANDED image end-card when provided, else a text card.
 const ctaLen = Math.max(2.5, total - t)
+if (E.CTA_CARD_URL) {
+  try { await dl(E.CTA_CARD_URL, `${tmp}/ctacard.png`)
+    sh(`ffmpeg -y -loop 1 -i ${tmp}/ctacard.png -t ${ctaLen} -vf "${V},fps=25,format=yuv420p" ${ENC} ${tmp}/cta.mp4`)
+    segs.push({ seg: `${tmp}/cta.mp4`, len: ctaLen })
+  } catch { E.CTA_CARD_URL = '' }
+}
+if (!E.CTA_CARD_URL) {
 // wrap the CTA so it never overflows the end card (<=16 chars/line)
 { const cw = String(E.CTA || 'Download').toUpperCase().split(/\s+/); const lines=['']; for(const w of cw){ if((lines[lines.length-1]+' '+w).trim().length<=16) lines[lines.length-1]=(lines[lines.length-1]+' '+w).trim(); else lines.push(w) } fs.writeFileSync(`${tmp}/cta.txt`, lines.filter(Boolean).join('\n')) }
 sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=${ctaLen} -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=64:line_spacing=16:borderw=6:bordercolor=black:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" ${ENC} ${tmp}/cta.mp4`)
 segs.push({ seg: `${tmp}/cta.mp4`, len: ctaLen })
+}
 
 // 3) concat the visual track
 fs.writeFileSync(`${tmp}/list.txt`, segs.map((s) => `file '${s.seg}'`).join('\n'))
@@ -63,7 +71,7 @@ if (words.length) {
     i = j
   }
   // fontsize 58 keeps <=14-char lines well inside 1080px; lower third, bold white + thick outline.
-  capF = ',' + groups.map((g, i) => { const f = `${tmp}/w${i}.txt`; fs.writeFileSync(f, g.text); return `drawtext=textfile=${f}:fontcolor=white:fontsize=58:borderw=7:bordercolor=black:x=(w-tw)/2:y=h*0.76:enable='between(t,${g.a.toFixed(2)},${g.b.toFixed(2)})'` }).join(',')
+  capF = ',' + groups.map((g, i) => { const f = `${tmp}/w${i}.txt`; fs.writeFileSync(f, g.text); return `drawtext=textfile=${f}:fontcolor=white:fontsize=58:borderw=7:bordercolor=black:x=(w-tw)/2:y=h*0.82:enable='between(t,${g.a.toFixed(2)},${g.b.toFixed(2)})'` }).join(',')
 }
 
 // 5) audio: VO master + music bed ducked under (loop the short clip), captions burned, output.
