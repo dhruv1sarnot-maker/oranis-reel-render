@@ -27,17 +27,21 @@ const hook = wrap(esc(E.HOOK, 80))
 const cta = esc(E.CTA, 60) || ('Download ' + esc(E.APP_SLUG, 30))
 const V = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920'
 if (hook) fs.writeFileSync(`${tmp}/hook.txt`, hook)
-const hookText = hook ? `,drawtext=textfile=${tmp}/hook.txt:fontcolor=white:fontsize=58:line_spacing=14:box=1:boxcolor=black@0.55:boxborderw=20:x=(w-tw)/2:y=190` : ''
+// NATIVE caption furniture (studied from Cal AI / Umax top reels 2026-07-17): WHITE rounded box, BLACK text,
+// center-screen — reads as platform-native, not an ad overlay. (ffmpeg box isn't rounded; white box + padding
+// is the closest native read.)
+const hookText = hook ? `,drawtext=textfile=${tmp}/hook.txt:fontcolor=black:fontsize=56:line_spacing=12:box=1:boxcolor=white@0.94:boxborderw=26:x=(w-tw)/2:y=(h-th)/2.6` : ''
 const segs = []
 
 if (clips.length) {
   // SCENARIO MODE — real-life beats first (2.6s each, muted), hook on beat 1
+  const beatSec = clips.length <= 2 ? 4.2 : 2.6  // POV format: fewer clips -> the person carries it longer
   for (let i = 0; i < clips.length; i++) {
     const cp = `${tmp}/clip${i}.mp4`; try { await dl(clips[i], cp) } catch { continue }
     const seg = `${tmp}/cseg${i}.mp4`
     const overlay = i === 0 ? hookText : ''
     try {
-      sh(`ffmpeg -y -i ${cp} -t 2.6 -an -vf "${V},fps=25${overlay},format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+      sh(`ffmpeg -y -i ${cp} -t ${beatSec} -an -vf "${V},fps=25${overlay},format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
       segs.push(seg)
     } catch {}
   }
