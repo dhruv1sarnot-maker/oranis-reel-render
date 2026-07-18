@@ -15,11 +15,15 @@ const images = J(E.IMAGE_URLS).slice(0, 6)
 const esc = (s, n) => String(s || '').replace(/['":\\%,]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n)
 // WRAP the hook — ffmpeg drawtext has NO auto-wrap; a long single line overflows 1080px and gets CLIPPED
 // on both edges (visually confirmed on the v1 render). <=22 chars/line, max 3 lines, joined with real newlines.
-const wrap = (t, w = 22, max = 3) => {
+const wrap = (t, w = 22, max = 4) => {
+  // NEVER drop words (QA caught "...made it their [superpower]" truncated): wrap up to `max` lines; if the
+  // text still overflows, the LAST line absorbs the remainder (slightly long > silently missing).
   const words = t.split(' '); const lines = ['']
   for (const word of words) {
-    if ((lines[lines.length - 1] + ' ' + word).trim().length <= w) lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + word).trim()
-    else { if (lines.length >= max) break; lines.push(word) }
+    const cur = lines[lines.length - 1]
+    if ((cur + ' ' + word).trim().length <= w || cur === '') lines[lines.length - 1] = (cur + ' ' + word).trim()
+    else if (lines.length < max) lines.push(word)
+    else lines[lines.length - 1] = (cur + ' ' + word).trim()
   }
   return lines.filter(Boolean).join('\n')
 }
