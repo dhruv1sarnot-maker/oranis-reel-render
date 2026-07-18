@@ -57,19 +57,21 @@ const segs = []
 const AUD = 'anullsrc=r=48000:cl=stereo'                      // silent stereo bed so every beat has audio
 const ENC = '-c:v libx264 -preset veryfast -pix_fmt yuv420p -r 25 -c:a aac -ar 48000 -ac 2'
 function probeDur(f) { try { return parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${f}`).toString().trim()) || 8 } catch { return 8 } }
+function hasAudio(f) { try { return execSync(`ffprobe -v error -select_streams a -show_entries stream=codec_name -of csv=p=0 ${f}`).toString().trim().length > 0 } catch { return false } }
 
 if (clips.length) {
   const captionSrc = String(E.DIALOGUE || E.HOOK || '')       // karaoke the SPOKEN words
   for (let i = 0; i < clips.length; i++) {
     const cp = `${tmp}/clip${i}.mp4`; try { await dl(clips[i], cp) } catch { continue }
     const seg = `${tmp}/cseg${i}.mp4`
-    const dur = Math.min(probeDur(cp), 9)                     // KEEP the talking clip's FULL length (was cut to 4.2s)
+    const dur = Math.min(probeDur(cp), 10)                    // KEEP the talking clip's FULL length (was cut to 4.2s)
     const kw = i === 0 ? karaokeCaptions(captionSrc, 0, dur, tmp, `c${i}`) : ''
     const vf = `${V},fps=25${kw ? ',' + kw : ''},format=yuv420p`
-    // KEEP the clip's real audio (her voice). If it has none, mix in silence so the stream always exists.
-    try {
-      sh(`ffmpeg -y -i ${cp} -f lavfi -i ${AUD} -map 0:v:0 -map 0:a:0? -map 1:a:0 -filter_complex "[1:a]apad[sil];[0:a:0?][sil]amix=inputs=2:duration=first[a]" -map "[a]" -t ${dur} -vf "${vf}" ${ENC} -shortest ${seg}`)
-    } catch {
+    // KEEP the clip's REAL voice. The old amix used invalid filter syntax [0:a:0?] -> threw -> fallback mapped
+    // SILENCE (every reel came out muted, -91dB). Now: if the clip has audio, map it directly; else add silence.
+    if (hasAudio(cp)) {
+      sh(`ffmpeg -y -i ${cp} -map 0:v:0 -map 0:a:0 -t ${dur} -vf "${vf}" ${ENC} -shortest ${seg}`)
+    } else {
       sh(`ffmpeg -y -i ${cp} -f lavfi -i ${AUD} -map 0:v:0 -map 1:a:0 -t ${dur} -vf "${vf}" ${ENC} -shortest ${seg}`)
     }
     segs.push(seg)
