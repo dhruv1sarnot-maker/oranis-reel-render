@@ -8,6 +8,8 @@ on:
       caption: { description: caption, required: false }
       image_urls: { description: JSON array of image urls, required: true }
       music_url: { description: optional music url, required: false }
+      clip_urls: { description: JSON array of real-life scenario clip urls (scenario mode), required: false }
+      cta: { description: CTA end-card text, required: false }
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -26,6 +28,8 @@ jobs:
           CAPTION: ${{ inputs.caption }}
           IMAGE_URLS: ${{ inputs.image_urls }}
           MUSIC_URL: ${{ inputs.music_url }}
+          CLIP_URLS: ${{ inputs.clip_urls }}
+          CTA: ${{ inputs.cta }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ORANIS_BASE_URL: ${{ secrets.ORANIS_BASE_URL }}
