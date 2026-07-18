@@ -22,7 +22,7 @@ const segs = []
 let t = 0
 for (let i = 0; i < clips.length; i++) {
   const cp = `${tmp}/clip${i}.mp4`; try { await dl(clips[i], cp) } catch { continue }
-  const seg = `${tmp}/seg${i}.mp4`, len = Math.min(dur(cp), 5.0)
+  const seg = `${tmp}/seg${i}.mp4`, len = Math.min(dur(cp), 4.0)
   sh(`ffmpeg -y -i ${cp} -t ${len} -vf "${V},fps=25,format=yuv420p" ${ENC} ${seg}`)
   segs.push({ seg, len }); t += len
 }
@@ -35,7 +35,7 @@ if (E.MONEY_SHOT_URL) {
   } catch {}
 }
 // CTA card to fill the remainder (>=2s)
-const ctaLen = Math.max(2.0, total - t)
+const ctaLen = Math.max(2.5, total - t)
 fs.writeFileSync(`${tmp}/cta.txt`, String(E.CTA || 'Download').toUpperCase())
 sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=${ctaLen} -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=72:borderw=6:bordercolor=black:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" ${ENC} ${tmp}/cta.mp4`)
 segs.push({ seg: `${tmp}/cta.mp4`, len: ctaLen })
