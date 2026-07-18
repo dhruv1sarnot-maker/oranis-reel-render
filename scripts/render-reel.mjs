@@ -13,10 +13,21 @@ const J = (s) => { try { return JSON.parse(s || '[]') } catch { return [] } }
 const clips = J(E.CLIP_URLS).slice(0, 3)
 const images = J(E.IMAGE_URLS).slice(0, 6)
 const esc = (s, n) => String(s || '').replace(/['":\\%,]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n)
-const hook = esc(E.HOOK, 80)
+// WRAP the hook — ffmpeg drawtext has NO auto-wrap; a long single line overflows 1080px and gets CLIPPED
+// on both edges (visually confirmed on the v1 render). <=22 chars/line, max 3 lines, joined with real newlines.
+const wrap = (t, w = 22, max = 3) => {
+  const words = t.split(' '); const lines = ['']
+  for (const word of words) {
+    if ((lines[lines.length - 1] + ' ' + word).trim().length <= w) lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + word).trim()
+    else { if (lines.length >= max) break; lines.push(word) }
+  }
+  return lines.filter(Boolean).join('\n')
+}
+const hook = wrap(esc(E.HOOK, 80))
 const cta = esc(E.CTA, 60) || ('Download ' + esc(E.APP_SLUG, 30))
 const V = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920'
-const hookText = hook ? `,drawtext=text='${hook}':fontcolor=white:fontsize=58:box=1:boxcolor=black@0.55:boxborderw=20:x=(w-tw)/2:y=210` : ''
+if (hook) fs.writeFileSync(`${tmp}/hook.txt`, hook)
+const hookText = hook ? `,drawtext=textfile=${tmp}/hook.txt:fontcolor=white:fontsize=58:line_spacing=14:box=1:boxcolor=black@0.55:boxborderw=20:x=(w-tw)/2:y=190` : ''
 const segs = []
 
 if (clips.length) {
@@ -43,7 +54,8 @@ if (clips.length) {
   // CTA END-CARD — 1.6s, bold centered CTA
   try {
     const seg = `${tmp}/cta.mp4`
-    sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=1.6 -vf "drawtext=text='${cta}':fontcolor=white:fontsize=72:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
+    fs.writeFileSync(`${tmp}/cta.txt`, wrap(cta, 18, 2))
+    sh(`ffmpeg -y -f lavfi -i color=c=0x111417:s=1080x1920:d=1.6 -vf "drawtext=textfile=${tmp}/cta.txt:fontcolor=white:fontsize=72:line_spacing=16:box=1:boxcolor=0x2E7D5B@0.9:boxborderw=28:x=(w-tw)/2:y=(h-th)/2,fps=25,format=yuv420p" -c:v libx264 -preset veryfast ${seg}`)
     segs.push(seg)
   } catch {}
 }
