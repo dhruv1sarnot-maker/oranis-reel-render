@@ -42,7 +42,6 @@ function karaokeCaptions(text, startT, dur, tmpDir, tag) {
     chunks.push(words.slice(i, i + take).join(' ')); i += take
   }
   const per = dur / chunks.length
-  const fs = require('fs')
   return chunks.map((c, i) => {
     const f = `${tmpDir}/kw-${tag}-${i}.txt`; fs.writeFileSync(f, c.toUpperCase())
     const a = (startT + i * per).toFixed(2), b = (startT + (i + 1) * per).toFixed(2)
